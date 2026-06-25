@@ -18,7 +18,12 @@ def main():
         print(f"Usage: {sys.argv[0]} <session-name>", file=sys.stderr)
         print(file=sys.stderr)
         print("Active sessions:", file=sys.stderr)
-        tmux("list-sessions", "-F", "  #{session_name}")
+        result = subprocess.run(
+            ["tmux", "list-sessions", "-F", "#{session_name}"],
+            capture_output=True, text=True,
+        )
+        for name in result.stdout.splitlines():
+            print(f"  {name} (tmux kill-session -t {name})", file=sys.stderr)
         sys.exit(1)
 
     if shutil.which("tmux") is None:

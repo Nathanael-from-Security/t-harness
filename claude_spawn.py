@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Spawn (or attach to) a Claude Code agent running inside a tmux session."""
 
+import argparse
 import os
 import shutil
 import subprocess
@@ -67,19 +68,37 @@ def install_tmux_keybinds():
 
 
 def main():
-    session_name = sys.argv[1] if len(sys.argv) > 1 else ""
-    agent_name = sys.argv[2] if len(sys.argv) > 2 else ""
-    workdir = sys.argv[3] if len(sys.argv) > 3 else os.getcwd()
+    parser = argparse.ArgumentParser(
+        description="Spawn (or attach to) a Claude Code agent running inside a tmux session."
+    )
+    parser.add_argument(
+        "--name",
+        default="orchestrator",
+        metavar="AGENT_NAME",
+        help="Role/name for the agent (e.g. builder, reviewer). Default: orchestrator",
+    )
+    parser.add_argument(
+        "--dir",
+        default=None,
+        metavar="WORKDIR",
+        help="Working directory for the agent. Default: current directory",
+    )
+    parser.add_argument(
+        "--session",
+        default=None,
+        metavar="SESSION_NAME",
+        help="Tmux session name. Default: claude-<name>",
+    )
+    args = parser.parse_args()
+
+    agent_name = args.name
+    workdir = args.dir if args.dir is not None else os.getcwd()
+    session_name = args.session if args.session is not None else f"claude-{agent_name}"
     claude_bin = os.environ.get("CLAUDE_BIN", "claude")
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     agents_bin = os.environ.get("AGENTS_BIN", os.path.join(script_dir, "claude_agents.py"))
     send_bin = os.environ.get("SEND_BIN", os.path.join(script_dir, "claude_talk.py"))
-
-    if not session_name or not agent_name:
-        print(f"Usage: {sys.argv[0]} <session-name> <agent-name> [workdir]", file=sys.stderr)
-        print(f"Example: {sys.argv[0]} claude-security security-reviewer ~/src/project", file=sys.stderr)
-        sys.exit(1)
 
     if shutil.which("tmux") is None:
         print("Missing tmux", file=sys.stderr)
@@ -143,18 +162,18 @@ SPAWNING NEW AGENTS
 
 To create a new agent in a new tmux session, use:
 
-{os.path.dirname(os.path.abspath(__file__))}/claude_spawn.py <SESSION_NAME> <AGENT_ROLE> [workdir]
+{os.path.dirname(os.path.abspath(__file__))}/claude_spawn.py --name <AGENT_ROLE> --dir <WORKDIR> [--session <SESSION_NAME>]
 
-IMPORTANT: The first argument is the TMUX SESSION NAME to create (must be unique).
-The second argument is the AGENT ROLE (builder, reviewer, security-reviewer, etc.).
+IMPORTANT: --name sets the agent role and determines the tmux session name (claude-<name>).
+Use --session to override the session name if you need it to be unique.
 
 Correct examples:
-  {os.path.dirname(os.path.abspath(__file__))}/claude_spawn.py claude-builder builder $PWD
-  {os.path.dirname(os.path.abspath(__file__))}/claude_spawn.py claude-reviewer reviewer $PWD
-  {os.path.dirname(os.path.abspath(__file__))}/claude_spawn.py claude-security security-reviewer $PWD
+  {os.path.dirname(os.path.abspath(__file__))}/claude_spawn.py --name builder --dir $PWD
+  {os.path.dirname(os.path.abspath(__file__))}/claude_spawn.py --name reviewer --dir $PWD
+  {os.path.dirname(os.path.abspath(__file__))}/claude_spawn.py --name security-reviewer --dir $PWD
 
 WRONG (will attach to existing claude-builder instead of creating new agent):
-  {os.path.dirname(os.path.abspath(__file__))}/claude_spawn.py claude-builder reviewer $PWD
+  {os.path.dirname(os.path.abspath(__file__))}/claude_spawn.py --name builder --session claude-builder --dir $PWD
 
 Do NOT use 'claude code --agent' or manual tmux commands.
 
@@ -164,7 +183,7 @@ List active agents:
 
 {agents_bin}
 
-Send messages to an agent (use its session name):
+Send messages to an agent (use its tmux session name):
 
 {send_bin} <session-name> "<message>"
 
@@ -189,6 +208,7 @@ Acknowledge your agent name, session name, and available coordination tools. The
 """
 
     subprocess.run([send_bin, session_name], input=intro, text=True)
+    tmux("send-keys", "-t", session_name, "C-m", check=True)
 
     if os.environ.get("TMUX"):
         os.execvp("tmux", ["tmux", "switch-client", "-t", session_name])

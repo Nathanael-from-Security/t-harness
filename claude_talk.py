@@ -4,6 +4,7 @@
 import shutil
 import subprocess
 import sys
+import time
 
 
 def tmux(*args, **kwargs):
@@ -45,8 +46,9 @@ def main():
 
     # Load message into tmux buffer, paste it into the session, then press Enter.
     tmux("load-buffer", "-", input=message, text=True)
-    tmux("paste-buffer", "-t", session_name)
-    tmux("send-keys", "-t", session_name, "C-m")
+    tmux("paste-buffer", "-p", "-t", session_name)
+    time.sleep(0.1)
+    tmux("send-keys", "-t", session_name, "Enter")
 
 
 if __name__ == "__main__":
