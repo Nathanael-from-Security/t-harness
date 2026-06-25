@@ -70,24 +70,20 @@ def cmd_status(args):
         print("No budget state yet. Run: claude_budget.py sample")
         return
 
-    current = state.get("current_tokens")
-    limit = state.get("token_limit", 0)
-    threshold = state.get("five_hour_threshold", 0)
+    usage = state.get("usage")
+    threshold = state.get("pause_threshold", 0)
     updated = state.get("updated_at", 0)
     age = int(time.time() - updated) if updated else None
 
-    if current is None:
-        usage = "unknown (ccusage unavailable)"
-    elif limit:
-        pct = 100.0 * current / limit
-        usage = f"{current:,} / {limit:,} tokens ({pct:.1f}%)"
+    if usage is None:
+        usage_str = "unknown (get-usage.py unavailable)"
     else:
-        usage = f"{current:,} tokens"
+        usage_str = f"{usage * 100:.1f}% of session limit"
 
     paused = state.get("paused")
-    print(f"Usage:     {usage}")
+    print(f"Usage:     {usage_str}")
     if threshold:
-        print(f"Pause at:  {int(threshold * 100)}% of limit")
+        print(f"Pause at:  {int(threshold * 100)}%")
     print(f"Enforced:  {'yes' if state.get('enforced') else 'no (no usage data)'}")
     print(f"Paused:    {'YES' if paused else 'no'}")
     if paused:
@@ -101,14 +97,8 @@ def cmd_status(args):
 
 def cmd_set(args):
     cfg = load_json(CONFIG_PATH, {})
-    if args.limit is not None:
-        cfg["token_limit"] = args.limit
     if args.threshold is not None:
-        cfg["five_hour_threshold"] = args.threshold
-    if args.growth is not None:
-        cfg["growth_threshold"] = args.growth
-    if args.lookback is not None:
-        cfg["lookback_seconds"] = args.lookback
+        cfg["pause_threshold"] = args.threshold
     atomic_write(CONFIG_PATH, json.dumps(cfg, indent=2))
     print("Config saved:")
     print(json.dumps(cfg, indent=2))
@@ -175,11 +165,8 @@ def main():
     p.add_argument("--format", choices=["table", "json"], default="table")
     p.set_defaults(func=cmd_status)
 
-    p = sub.add_parser("set", help="persist limits/thresholds")
-    p.add_argument("--limit", type=int, help="5-hour token limit")
-    p.add_argument("--threshold", type=float, help="pause fraction of limit (e.g. 0.80)")
-    p.add_argument("--growth", type=float, help="growth-spike ratio (e.g. 1.10)")
-    p.add_argument("--lookback", type=int, help="growth lookback window in seconds")
+    p = sub.add_parser("set", help="persist pause threshold")
+    p.add_argument("--threshold", type=float, help="session usage fraction to pause at (e.g. 0.50)")
     p.set_defaults(func=cmd_set)
 
     p = sub.add_parser("pause", help="manually pause (block tool calls)")

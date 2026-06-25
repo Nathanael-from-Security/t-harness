@@ -24,7 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 GATE = REPO_ROOT / "hooks" / "budget-gate.sh"
 
 DEFAULT_SETTINGS = Path.home() / ".claude" / "settings.json"
-DEFAULT_MATCHER = "Bash|Write|Edit|MultiEdit|Task|WebFetch|WebSearch"
+DEFAULT_MATCHER = "Read|Bash|Write|Edit|MultiEdit|Task|WebFetch|WebSearch"
 DEFAULT_TIMEOUT = 5
 
 
