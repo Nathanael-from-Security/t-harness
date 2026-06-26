@@ -1,0 +1,11 @@
+{
+  "name": "sast-plugin",
+  "description": "A comprehensive **Static Application Security Testing (SAST)** plugin for Totara LMS providing multi-lens security analysis.",
+  "entrypoints": {
+    "skills": "skills/"
+  },
+  "author": {
+    "name": "Totara",
+    "email": "security@totara.com"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "msa-review",
+  "description": "Triage Moodle Security Advisories against the Totara codebase and produce a patch-decision table.",
+  "entrypoints": {
+    "skills": "skills/"
+  },
+  "author": {
+    "name": "Totara",
+    "email": "security@totara.com"
+  }
+}
