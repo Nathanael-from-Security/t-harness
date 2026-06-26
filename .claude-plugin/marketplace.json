@@ -15,8 +15,8 @@
         "name": "Totara",
         "email": "security@totara.com"
       },
-      "source": "./marketplace/plugins/manage-session",
-      "homepage": "git@github.com:Nathanael-from-Security/t-harness.git"
+      "source": "./plugins/manage-session",
+      "homepage": "https://github.com/Nathanael-from-Security/t-harness.git"
     }
   ]
 }
