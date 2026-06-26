@@ -1,6 +1,9 @@
 {
   "name": "manage-session",
   "description": "Coordinate multiple Claude Code agents running in tmux sessions using local Python helper scripts in the current working directory. Use when the user asks to spawn, list, message, delegate to, review with, or coordinate other Claude agents; when a task would benefit from separate builder, reviewer, security-reviewer, researcher, or tester agents; or when reporting status across active Claude tmux sessions. Prefer this skill over manual tmux commands for multi-agent coordination.",
+  "entrypoints": {
+    "skills": "skills/"
+  },
   "author": {
     "name": "Totara",
     "email": "security@totara.com"
