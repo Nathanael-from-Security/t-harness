@@ -1,8 +1,0 @@
-{
-  "name": "sra-plugin",
-  "description": "Produce Security Risk Assessment reports for Totara features and changes. Use this when assessing whether a feature needs further security assessment, threat modelling, security team involvement, or stakeholder notification.",
-  "author": {
-    "name": "Totara",
-    "email": "security@totara.com"
-  }
-}

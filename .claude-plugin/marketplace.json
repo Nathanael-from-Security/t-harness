@@ -1,44 +1,22 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "harness-marketplace",
-  "description": "Claude Code skills and plugins for security work within Totara",
+  "description": "Claude Code skills and plugins for use with this harness",
   "owner": {
     "name": "Totara",
     "email": "security@totara.com"
   },
   "plugins": [
     {
-      "name": "sra-plugin",
-      "description": "Produce Security Risk Assessment reports for Totara features and changes. Use this when assessing whether a feature needs further security assessment, threat modelling, security team involvement, or stakeholder notification.",
+      "name": "coordinator",
+      "description": "Coordinate multiple Claude Code agents running in tmux sessions using local Python helper scripts in the current working directory. Use when the user asks to spawn, list, message, delegate to, review with, or coordinate other Claude agents; when a task would benefit from separate builder, reviewer, security-reviewer, researcher, or tester agents; or when reporting status across active Claude tmux sessions. Prefer this skill over manual tmux commands for multi-agent coordination.",
       "category": "development",
       "author": {
         "name": "Totara",
         "email": "security@totara.com"
       },
-      "source": "./plugins/sra-plugin",
-      "homepage": "https://totara.ghe.com/totara/sec-ai-plugins.git"
-    },
-    {
-      "name": "sast-plugin",
-      "description": "A comprehensive **Static Application Security Testing (SAST)** plugin for Totara LMS providing multi-lens security analysis.",
-      "category": "development",
-      "author": {
-        "name": "Totara",
-        "email": "security@totara.com"
-      },
-      "source": "./plugins/sast-plugin",
-      "homepage": "https://totara.ghe.com/totara/sec-ai-plugins.git"
-    },
-    {
-      "name": "msa-review",
-      "description": "Triage Moodle Security Advisories against the Totara codebase and produce a patch-decision table.",
-      "category": "development",
-      "author": {
-        "name": "Totara",
-        "email": "security@totara.com"
-      },
-      "source": "./plugins/msa-review",
-      "homepage": "https://totara.ghe.com/totara/sec-ai-plugins.git"
+      "source": "./plugins/coordinator",
+      "homepage": "https://github.com/Nathanael-from-Security/t-harness.git"
     }
   ]
 }
