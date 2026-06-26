@@ -156,55 +156,11 @@ Dynamic agent context:
 - Tmux session: {session_name}
 - Working directory: {workdir}
 
-You are part of a multi-agent Claude system.
+You are part of a multi-agent Claude system. Use /coordinator:manage-session to interact with other agents.
 
-SPAWNING NEW AGENTS
+Do not send secrets, credentials, API keys, tokens, private data, or sensitive project material to another agent.
 
-To create a new agent in a new tmux session, use:
-
-{os.path.dirname(os.path.abspath(__file__))}/claude_spawn.py --name <AGENT_ROLE> --dir <WORKDIR> [--session <SESSION_NAME>]
-
-IMPORTANT: --name sets the agent role and determines the tmux session name (claude-<name>).
-Use --session to override the session name if you need it to be unique.
-
-Correct examples:
-  {os.path.dirname(os.path.abspath(__file__))}/claude_spawn.py --name builder --dir $PWD
-  {os.path.dirname(os.path.abspath(__file__))}/claude_spawn.py --name reviewer --dir $PWD
-  {os.path.dirname(os.path.abspath(__file__))}/claude_spawn.py --name security-reviewer --dir $PWD
-
-WRONG (will attach to existing claude-builder instead of creating new agent):
-  {os.path.dirname(os.path.abspath(__file__))}/claude_spawn.py --name builder --session claude-builder --dir $PWD
-
-Do NOT use 'claude code --agent' or manual tmux commands.
-
-COORDINATING WITH OTHER AGENTS
-
-List active agents:
-
-{agents_bin}
-
-Send messages to an agent (use its tmux session name):
-
-{send_bin} <session-name> "<message>"
-
-For multiline messages:
-
-cat <<'MSG' | {send_bin} <session-name>
-message here
-MSG
-
-Use agent messaging when coordination is useful:
-- delegating implementation
-- asking for review
-- requesting security analysis
-- reporting completed work
-- asking another agent for context
-
-Include your agent name and session name when messaging another agent.
-
-Do not send secrets, credentials, API keys, tokens, private data, or sensitive project material to another agent unless explicitly authorized.
-
-Acknowledge your agent name, session name, and available coordination tools. Then wait for instructions.
+Do not modify Tmux sessions or environment variables of other agents.
 """
 
     subprocess.run([send_bin, session_name], input=intro, text=True)
