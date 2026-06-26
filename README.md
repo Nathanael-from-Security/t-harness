@@ -2,17 +2,29 @@
 
 Multi-agent orchestration toolkit for running Claude Code agents in parallel tmux sessions.
 
+## Script locations
+
+The coordination scripts live under `plugins/coordinator/` so that Claude agents can locate and invoke them directly:
+
+```
+plugins/coordinator/
+  claude_spawn.py   — spawn or attach to an agent tmux session
+  claude_agents.py  — list active claude-* sessions
+  claude_talk.py    — send a message to an agent session
+claude_view.py      — attach to / view a session (repo root)
+```
+
 ## Quick Start
 
 ```bash
 # Start a builder agent
-./claude_spawn.py claude-builder builder ~/src/project
+./plugins/coordinator/claude_spawn.py claude-builder builder ~/src/project
 
 # List all active claude-* agents
-./claude_agents.py
+./plugins/coordinator/claude_agents.py
 
 # Send a message to an agent
-./claude_talk.py claude-builder "your message here"
+./plugins/coordinator/claude_talk.py claude-builder "your message here"
 
 # View/attach to an agent's session
 ./claude_view.py claude-builder
@@ -26,7 +38,7 @@ List all active `claude-*` tmux sessions.
 
 **Usage:**
 ```bash
-./claude_agents.py [format]
+./plugins/coordinator/claude_agents.py [format]
 ```
 
 **Formats:**
@@ -61,17 +73,17 @@ Send a message to a Claude agent's tmux session.
 
 **Usage:**
 ```bash
-./claude_talk.py <session-name> [message...]
-echo 'message' | ./claude_talk.py <session-name>
+./plugins/coordinator/claude_talk.py <session-name> [message...]
+echo 'message' | ./plugins/coordinator/claude_talk.py <session-name>
 ```
 
 **Examples:**
 ```bash
 # Send a single-line message
-./claude_talk.py claude-builder "Check for lint errors"
+./plugins/coordinator/claude_talk.py claude-builder "Check for lint errors"
 
 # Send a multiline message
-cat <<'MSG' | ./claude_talk.py claude-builder
+cat <<'MSG' | ./plugins/coordinator/claude_talk.py claude-builder
 Review the auth flow for:
 - session handling
 - token validation
@@ -100,6 +112,8 @@ Attach to (or switch the client to) a Claude agent's tmux session.
 ./claude_view.py claude-builder
 ```
 
+> `claude_view.py` remains at the repo root.
+
 If no session name is provided, lists all active sessions.
 
 ---
@@ -110,19 +124,19 @@ Spawn a new Claude Code agent inside a tmux session, or attach to an existing on
 
 **Usage:**
 ```bash
-./claude_spawn.py <session-name> <agent-name> [workdir]
+./plugins/coordinator/claude_spawn.py <session-name> <agent-name> [workdir]
 ```
 
 **Examples:**
 ```bash
 # Start a builder agent
-./claude_spawn.py claude-builder builder ~/src/project
+./plugins/coordinator/claude_spawn.py claude-builder builder ~/src/project
 
 # Start a security reviewer
-./claude_spawn.py claude-security security-reviewer ~/src/project
+./plugins/coordinator/claude_spawn.py claude-security security-reviewer ~/src/project
 
 # Start a researcher with default cwd
-./claude_spawn.py claude-research researcher
+./plugins/coordinator/claude_spawn.py claude-research researcher
 ```
 
 **Behavior:**
@@ -152,17 +166,17 @@ Spawn a new Claude Code agent inside a tmux session, or attach to an existing on
 
 1. Spawn agents:
    ```bash
-   ./claude_spawn.py claude-builder builder ~/src/project
+   ./plugins/coordinator/claude_spawn.py claude-builder builder ~/src/project
    ```
 
 2. In one agent, ask another agent for help:
    ```bash
-   ./claude_talk.py claude-security "Review this auth PR for vulns"
+   ./plugins/coordinator/claude_talk.py claude-security "Review this auth PR for vulns"
    ```
 
 3. Check on all agents:
    ```bash
-   ./claude_agents.py
+   ./plugins/coordinator/claude_agents.py
    ```
 
 4. View a specific agent:
@@ -173,7 +187,7 @@ Spawn a new Claude Code agent inside a tmux session, or attach to an existing on
 ### Multiline messages
 
 ```bash
-cat <<'MSG' | ./claude_talk.py claude-reviewer
+cat <<'MSG' | ./plugins/coordinator/claude_talk.py claude-reviewer
 I've finished the refactor. Please review:
 - Performance impact on login flow
 - Backwards compatibility with existing sessions
@@ -184,9 +198,9 @@ MSG
 
 ```bash
 #!/bin/bash
-agents=$(./claude_agents.py names)
+agents=$(./plugins/coordinator/claude_agents.py names)
 for agent in $agents; do
-  ./claude_talk.py "$agent" "Check for test coverage gaps"
+  ./plugins/coordinator/claude_talk.py "$agent" "Check for test coverage gaps"
 done
 ```
 
