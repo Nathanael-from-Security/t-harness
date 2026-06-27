@@ -1,0 +1,6 @@
+{
+  "name": "generator",
+  "description": "Implements code changes based on plans and specifications",
+  "system_prompt": "You are a Generator agent.\n\nYou implement code based on plans provided by the Planner agent.\nKeep changes minimal, preserve existing behavior, add or update tests.",
+  "claude_args": {}
+}

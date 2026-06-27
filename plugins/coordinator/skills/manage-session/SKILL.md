@@ -1,6 +1,6 @@
 ---
 name: manage-session
-description: Coordinate multiple Claude Code agents running in tmux sessions using local Python helper scripts in the current working directory. Use when the user asks to spawn, list, message, delegate to, review with, or coordinate other Claude agents; when a task would benefit from separate builder, reviewer, security-reviewer, researcher, or tester agents; or when reporting status across active Claude tmux sessions. Prefer this skill over manual tmux commands for multi-agent coordination.
+description: Coordinate multiple Claude Code agents running in tmux sessions using local Python helper scripts in the current working directory. Agents can be spawned from built-in profiles (orchestrator, planner, code-reviewer, security-reviewer, generator) that set system prompts, tool policies, and Claude CLI arguments. Use when the user asks to spawn, list, message, delegate to, review with, or coordinate other Claude agents; when a task would benefit from separate planner, reviewer, security-reviewer, or generator agents; or when reporting status across active Claude tmux sessions. Prefer this skill over manual tmux commands for multi-agent coordination.
 ---
 
 # Agent Coordination
@@ -24,11 +24,11 @@ Use these scripts instead of manual tmux commands.
 * Make session names unique.
 * Prefer session names that start with `claude-`, such as:
 
-  * `claude-builder`
-  * `claude-reviewer`
-  * `claude-security`
-  * `claude-tester`
-  * `claude-researcher`
+  * `claude-orchestrator`
+  * `claude-planner`
+  * `claude-code-reviewer`
+  * `claude-security-reviewer`
+  * `claude-generator`
 * Include your own agent name and tmux session name when messaging another agent, if known.
 * Keep messages specific, bounded, and actionable.
 * Do not send secrets, credentials, API keys, tokens, private keys, cookies, personal data, customer data, or sensitive project material to another agent unless the user explicitly authorizes it.
@@ -54,31 +54,38 @@ Use this to verify that a newly spawned agent exists.
 Run:
 
 ```bash
-./claude_spawn.py <SESSION_NAME> <AGENT_ROLE> [workdir]
+./claude_spawn.py --name <PROFILE> [--session <SESSION>] [--dir <WORKDIR>]
 ```
 
 Arguments:
 
-* `<SESSION_NAME>`: unique tmux session name to create or attach to
-* `<AGENT_ROLE>`: role or purpose for the agent
-* `[workdir]`: optional working directory; use `$PWD` when coordinating within the current repository
+* `--name <PROFILE>`: profile name — maps to a built-in profile (orchestrator, planner, code-reviewer, security-reviewer, generator) that sets system prompt, tool policy, and Claude CLI arguments. See "Available Profiles" below.
+* `--session <SESSION>`: optional tmux session name to create or attach to. Default: `claude-<profile>`.
+* `--dir <WORKDIR>`: optional working directory. Default: `$PWD`.
 
-Correct examples:
+**Smart default** (when `--name` is omitted):
 
-```bash
-./claude_spawn.py claude-builder builder "$PWD"
-./claude_spawn.py claude-reviewer reviewer "$PWD"
-./claude_spawn.py claude-security security-reviewer "$PWD"
-./claude_spawn.py claude-tester tester "$PWD"
-```
+* If no `claude-orchestrator` session exists → defaults to `--name orchestrator`
+* If `claude-orchestrator` already exists → defaults to `--name planner`
 
-Do not reuse the same session name for a different role. For example, do not run:
+Examples with profiles:
 
 ```bash
-./claude_spawn.py claude-builder reviewer "$PWD"
+./claude_spawn.py --name orchestrator
+./claude_spawn.py --name planner
+./claude_spawn.py --name code-reviewer --session claude-code-reviewer
+./claude_spawn.py --name generator --session claude-generator
 ```
 
-That may attach to the existing `claude-builder` session instead of creating a reviewer.
+The profile determines the system prompt and Claude CLI flags (e.g. `--permission-mode plan` for read-only agents). You can override the session name with `--session`.
+
+Do not reuse the same session name for a different profile. For example, do not run:
+
+```bash
+./claude_spawn.py --name code-reviewer --session claude-generator
+```
+
+That may attach to the existing `claude-generator` session instead of creating a reviewer.
 
 ### Send a single-line message
 
@@ -91,7 +98,7 @@ Run:
 Example:
 
 ```bash
-./claude_talk.py claude-reviewer "From claude-orchestrator: Please review the current diff for correctness, edge cases, and test gaps. Report findings only; do not modify files."
+./claude_talk.py claude-code-reviewer "From claude-orchestrator: Please review the current diff for correctness, edge cases, and test gaps. Report findings only; do not modify files."
 ```
 
 ### Send a multiline message
@@ -107,7 +114,7 @@ MSG
 Example:
 
 ```bash
-cat <<'MSG' | ./claude_talk.py claude-security
+cat <<'MSG' | ./claude_talk.py claude-security-reviewer
 From claude-orchestrator in session claude-orchestrator.
 
 Please review the current diff for security issues. Focus on:
@@ -137,28 +144,89 @@ Good coordination cases:
 
 Avoid spawning agents for trivial tasks, small edits, or work that would be faster and clearer to do directly.
 
+## Available Profiles
+
+Built-in profiles live under `profiles/<name>/profile.json` in the coordinator plugin directory. Each profile sets a system prompt and optional Claude CLI arguments (e.g. `--permission-mode plan` for read-only agents).
+
+### Orchestrator
+
+| Field | Value |
+|---|---|
+| Profile name | `orchestrator` |
+| Default session | `claude-orchestrator` |
+| Tool access | Full (no restrictions) |
+| System prompt | None (generic coordination context) |
+
+The first agent to spawn. Coordinates other agents, delegates work, and integrates results.
+
+### Planner
+
+| Field | Value |
+|---|---|
+| Profile name | `planner` |
+| Default session | `claude-planner` |
+| Tool access | Read-only (no Edit, Write, or Bash) |
+| CLI args | `--permission-mode plan` |
+| Skill | `grill-me` — relentlessly stress-tests plans by walking the decision tree |
+
+Analyzes problems, decomposes them into structured plans, and uses the **grill-me** skill to question every assumption before delegating implementation.
+
+Does the planning work before a generator implements.
+
+### Code Reviewer
+
+| Field | Value |
+|---|---|
+| Profile name | `code-reviewer` |
+| Default session | `claude-code-reviewer` |
+| Tool access | Read-only (no Edit, Write, or Bash) |
+| CLI args | `--permission-mode plan` |
+
+Reviews diffs for correctness, edge cases, regressions, maintainability, and test coverage. Does not modify files.
+
+### Security Reviewer
+
+| Field | Value |
+|---|---|
+| Profile name | `security-reviewer` |
+| Default session | `claude-security-reviewer` |
+| Tool access | Read-only (no Edit, Write, or Bash) |
+| CLI args | `--permission-mode plan` |
+
+Reviews diffs for security vulnerabilities: auth bypass, injection, unsafe execution, secret leakage, weak crypto. Does not modify files.
+
+### Generator
+
+| Field | Value |
+|---|---|
+| Profile name | `generator` |
+| Default session | `claude-generator` |
+| Tool access | Full (write access for implementation) |
+
+Implements code based on plans and specifications. Works best after a planner has decomposed the work.
+
 ## Recommended Agent Roles
 
-### Builder
+### Generator
 
-Use a builder agent for implementation.
+Use a generator agent for implementation. Spawn with the `generator` profile.
 
 Suggested session name:
 
 ```text
-claude-builder
+claude-generator
 ```
 
-Suggested role:
+Suggested profile:
 
 ```text
-builder
+generator
 ```
 
 Suggested prompt:
 
 ```bash
-cat <<'MSG' | ./claude_talk.py claude-builder
+cat <<'MSG' | ./claude_talk.py claude-generator
 From <your-agent-name> in session <your-session-name>.
 
 Task: implement the requested change.
@@ -174,26 +242,26 @@ After finishing, report changed files, tests run, and any unresolved risks.
 MSG
 ```
 
-### Reviewer
+### Code Reviewer
 
-Use a reviewer agent for correctness, maintainability, and test coverage review.
+Use a code-reviewer agent for correctness, maintainability, and test coverage review. Spawn with the `code-reviewer` profile.
 
 Suggested session name:
 
 ```text
-claude-reviewer
+claude-code-reviewer
 ```
 
-Suggested role:
+Suggested profile:
 
 ```text
-reviewer
+code-reviewer
 ```
 
 Suggested prompt:
 
 ```bash
-cat <<'MSG' | ./claude_talk.py claude-reviewer
+cat <<'MSG' | ./claude_talk.py claude-code-reviewer
 From <your-agent-name> in session <your-session-name>.
 
 Please review the current diff.
@@ -212,15 +280,15 @@ MSG
 
 ### Security Reviewer
 
-Use a security reviewer agent for auth, crypto, parsing, network, shell, filesystem, dependency, or data-handling changes.
+Use a security reviewer agent for auth, crypto, parsing, network, shell, filesystem, dependency, or data-handling changes. Spawn with the `security-reviewer` profile.
 
 Suggested session name:
 
 ```text
-claude-security
+claude-security-reviewer
 ```
 
-Suggested role:
+Suggested profile:
 
 ```text
 security-reviewer
@@ -229,7 +297,7 @@ security-reviewer
 Suggested prompt:
 
 ```bash
-cat <<'MSG' | ./claude_talk.py claude-security
+cat <<'MSG' | ./claude_talk.py claude-security-reviewer
 From <your-agent-name> in session <your-session-name>.
 
 Please perform a security review of the current diff.
@@ -252,7 +320,7 @@ MSG
 
 ### Tester
 
-Use a tester agent to identify and run relevant tests.
+Use a tester agent to identify and run relevant tests. There is no built-in profile for tester; use `--name tester` and it will fall back to a generic briefing.
 
 Suggested session name:
 
@@ -286,7 +354,7 @@ MSG
 
 ### Researcher
 
-Use a researcher agent to inspect repository conventions, internal docs, or unfamiliar areas of the codebase.
+Use a researcher agent to inspect repository conventions, internal docs, or unfamiliar areas of the codebase. There is no built-in profile for researcher; use `--name researcher` and it will fall back to a generic briefing.
 
 Suggested session name:
 
@@ -329,16 +397,17 @@ When coordinating multi-agent work:
    ./claude_agents.py
    ```
 
-2. Spawn any missing agents with clear session names.
+2. Spawn any missing agents with the appropriate profile.
 
    ```bash
-   ./claude_spawn.py claude-reviewer reviewer "$PWD"
+   ./claude_spawn.py --name code-reviewer
+   ./claude_spawn.py --name generator
    ```
 
 3. Send each agent a bounded task.
 
    ```bash
-   cat <<'MSG' | ./claude_talk.py claude-reviewer
+   cat <<'MSG' | ./claude_talk.py claude-code-reviewer
    From <your-agent-name> in session <your-session-name>.
 
    Please review the current diff. Do not modify files.
@@ -455,7 +524,7 @@ Use status requests sparingly.
 Example:
 
 ```bash
-./claude_talk.py claude-builder "From claude-orchestrator: Please send a brief status update: current task, files touched, blockers, and next step."
+./claude_talk.py claude-generator "From claude-orchestrator: Please send a brief status update: current task, files touched, blockers, and next step."
 ```
 
 ## Completion Reports
@@ -473,7 +542,7 @@ When an agent completes work, ask for:
 Example:
 
 ```bash
-./claude_talk.py claude-builder "From claude-orchestrator: Please provide a completion report with summary, files changed, tests run, results, and unresolved risks."
+./claude_talk.py claude-generator "From claude-orchestrator: Please provide a completion report with summary, files changed, tests run, results, and unresolved risks."
 ```
 
 ## Troubleshooting
@@ -496,10 +565,10 @@ If no agents are listed, run:
 ./claude_agents.py
 ```
 
-Then spawn the required agent:
+Then spawn the required agent with a profile:
 
 ```bash
-./claude_spawn.py claude-reviewer reviewer "$PWD"
+./claude_spawn.py --name code-reviewer
 ```
 
 If messaging fails, verify the exact session name:
@@ -515,12 +584,13 @@ Then retry with the session name from the list.
 Use these defaults unless the user gives different instructions:
 
 * Working directory: `$PWD`
-* Orchestrator session: `claude-orchestrator`
-* Builder session: `claude-builder`
-* Reviewer session: `claude-reviewer`
-* Security reviewer session: `claude-security`
-* Tester session: `claude-tester`
-* Researcher session: `claude-researcher`
+* No `--name` given and no orchestrator exists → `orchestrator`
+* No `--name` given and orchestrator exists → `planner`
+* Orchestrator profile name: `orchestrator` (session: `claude-orchestrator`)
+* Planner profile name: `planner` (session: `claude-planner`)
+* Code reviewer profile name: `code-reviewer` (session: `claude-code-reviewer`)
+* Security reviewer profile name: `security-reviewer` (session: `claude-security-reviewer`)
+* Generator profile name: `generator` (session: `claude-generator`)
 
 ## Final Response Expectations
 
@@ -528,9 +598,9 @@ When this skill was used, include a concise coordination summary in the final re
 
 ```text
 Coordination used:
-- claude-builder: implemented <summary>
-- claude-reviewer: reviewed <summary>
-- claude-security: found <summary>
+- claude-generator: implemented <summary>
+- claude-code-reviewer: reviewed <summary>
+- claude-security-reviewer: found <summary>
 
 Result:
 <final outcome>

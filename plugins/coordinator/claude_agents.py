@@ -32,16 +32,22 @@ def get_role(session):
                 break
 
     if not role:
-        if "planner" in session:
+        if "orchestrator" in session:
+            role = "orchestrator"
+        elif "planner" in session:
             role = "planner"
         elif "builder" in session:
             role = "builder"
+        elif "generator" in session:
+            role = "generator"
         elif "reviewer" in session:
             role = "reviewer"
         elif "security" in session:
             role = "security-reviewer"
         elif "research" in session:
             role = "researcher"
+        elif "tester" in session:
+            role = "tester"
         else:
             role = "unknown"
 

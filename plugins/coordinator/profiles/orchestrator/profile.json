@@ -1,0 +1,4 @@
+{
+  "name": "orchestrator",
+  "description": "Coordinates other agents, delegates work, and integrates results"
+}

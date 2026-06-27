@@ -2,7 +2,9 @@
 """Spawn (or attach to) a Claude Code agent running inside a tmux session."""
 
 import argparse
+import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -73,9 +75,9 @@ def main():
     )
     parser.add_argument(
         "--name",
-        default="orchestrator",
+        default=None,
         metavar="AGENT_NAME",
-        help="Role/name for the agent (e.g. builder, reviewer). Default: orchestrator",
+        help="Role/name for the agent (e.g. planner, code-reviewer). Default: detects if orchestrator exists, then planner or orchestrator",
     )
     parser.add_argument(
         "--dir",
@@ -92,11 +94,23 @@ def main():
     args = parser.parse_args()
 
     agent_name = args.name
+    if agent_name is None:
+        if has_session("claude-orchestrator"):
+            agent_name = "planner"
+        else:
+            agent_name = "orchestrator"
+
     workdir = args.dir if args.dir is not None else os.getcwd()
     session_name = args.session if args.session is not None else f"claude-{agent_name}"
     claude_bin = os.environ.get("CLAUDE_BIN", "claude")
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    profile = None
+    profile_path = os.path.join(script_dir, "profiles", agent_name, "profile.json")
+    if os.path.isfile(profile_path):
+        with open(profile_path) as f:
+            profile = json.load(f)
     agents_bin = os.environ.get("AGENTS_BIN", os.path.join(script_dir, "claude_agents.py"))
     send_bin = os.environ.get("SEND_BIN", os.path.join(script_dir, "claude_talk.py"))
 
@@ -137,12 +151,24 @@ def main():
 
     tmux("rename-window", "-t", f"{session_name}:0", agent_name)
 
+    if profile:
+        role = profile.get("name", agent_name)
+        tmux("set-environment", "-t", session_name, "CLAUDE_AGENT_ROLE", role)
+
+    cmd = [claude_bin]
+    if profile:
+        if profile.get("system_prompt"):
+            cmd += ["--append-system-prompt", profile["system_prompt"]]
+        for key, value in profile.get("claude_args", {}).items():
+            cmd += [f"--{key}", str(value)]
+    cmd_parts = " ".join(shlex.quote(c) for c in cmd)
+
     tmux(
         "send-keys", "-t", session_name,
         f"export CLAUDE_AGENT_NAME='{agent_name}'; "
         f"export CLAUDE_AGENT_SESSION='{session_name}'; "
         f"export CLAUDE_AGENT_WORKDIR='{workdir}'; "
-        f"exec {claude_bin}",
+        f"exec {cmd_parts}",
         "C-m",
     )
 

@@ -36,31 +36,33 @@ This document specifies the target system that builds on those primitives.
 ## 3. Architecture
 
 ```
-                         ┌──────────────────────────────┐
-                         │           Operator            │
-                         │      (single terminal)        │
-                         └───────────────┬──────────────┘
-                                         │ tmux client
-                         ┌───────────────▼──────────────┐
-                         │          tmux server          │
-                         │  claude-planner               │
-                         │  claude-builder               │
-                         │  claude-reviewer              │
-                         │  claude-security  ...          │
-                         └───┬───────────┬───────────┬───┘
-                             │           │           │
-                    ┌────────▼──┐  ┌─────▼─────┐  ┌──▼────────┐
-                    │ claude    │  │ claude    │  │ claude    │
-                    │ (agent)   │  │ (agent)   │  │ (agent)   │
-                    └────┬──────┘  └─────┬─────┘  └────┬──────┘
-                         │               │             │
-        ┌────────────────┴───────────────┴─────────────┴───────────────┐
-        │                       Shared harness layer                     │
-        │  Task store · Memory-graph MCP · Profiles · Hooks · Budget      │
-        └────────────────────────────────────────────────────────────────┘
+                          ┌──────────────────────────────┐
+                          │           Operator            │
+                          │      (single terminal)        │
+                          └───────────────┬──────────────┘
+                                          │ tmux client
+                          ┌───────────────▼──────────────┐
+                          │          tmux server          │
+                          │  claude-orchestrator          │
+                          │  claude-planner               │
+                          │  claude-code-reviewer         │
+                          │  claude-security-reviewer     │
+                          │  claude-generator  ...        │
+                          └───┬───────────┬───────────┬───┘
+                              │           │           │
+                     ┌────────▼──┐  ┌─────▼─────┐  ┌──▼────────┐
+                     │ claude    │  │ claude    │  │ claude    │
+                     │ (agent)   │  │ (agent)   │  │ (agent)   │
+                     └────┬──────┘  └─────┬─────┘  └────┬──────┘
+                          │               │             │
+         ┌────────────────┴───────────────┴─────────────┴───────────────┐
+         │                       Shared harness layer                     │
+         │  Task store · Memory-graph MCP · Profiles · Hooks · Budget      │
+         └────────────────────────────────────────────────────────────────┘
 ```
 
 - Each agent is a standard `claude` process running inside a dedicated tmux session.
+- Agents are spawned with built-in profiles that pass `--append-system-prompt` and other CLI flags (e.g. `--permission-mode plan`) to configure role behavior and tool access.
 - Coordination occurs through harness CLIs (message passing) and shared state (task store, memory graph).
 - Behavioral controls (budget pausing, auto-resolution) are enforced through Claude Code hooks configured by the harness.
 
@@ -83,7 +85,7 @@ This document specifies the target system that builds on those primitives.
 | `claude_talk.py` | Exists | Send single-line or multiline messages to an agent session |
 | `claude_view.py` | Exists | Attach to or switch the client to an agent session |
 | `claude_tasks.py` | Planned | Task management CLI over a shared task store |
-| `claude_profile.py` | Planned | Resolve and apply agent profiles at spawn time |
+| `claude_profile.py` | Merged into `claude_spawn.py` | Profile resolution is now built into `claude_spawn.py` via `profiles/<role>/profile.json` |
 | `claude_lsp.py` | Planned | Detect project languages and configure LSP automatically |
 | `claude_budget.py` | Planned | Track token usage and enforce budget thresholds |
 | `claude_autoanswer.py` | Planned | Resolve user-input prompts when the operator is absent |
@@ -98,7 +100,7 @@ Agents and the operator can create new agents and coordinate with existing ones.
 
 **Behavior**
 
-- `claude_spawn.py <session-name> <agent-role> [workdir]` creates a new tmux session, sets identity environment variables, starts `claude`, and delivers an intro briefing.
+- `claude_spawn.py --name <profile> [--session <session>] [--dir <workdir>]` creates a new tmux session, sets identity environment variables, starts `claude`, and delivers an intro briefing. The `--name` argument maps to a built-in profile (orchestrator, planner, code-reviewer, security-reviewer, generator) that sets system prompt and CLI flags.
 - If the session already exists, the command attaches to it rather than creating a duplicate.
 - The intro briefing instructs the agent how to spawn further agents and how to message peers, and forbids manual `tmux` or `claude code --agent` invocation.
 - Spawned agents inherit no conversation state from the spawner; coordination is explicit through messaging and shared state.
@@ -110,7 +112,7 @@ Agents and the operator can create new agents and coordinate with existing ones.
 
 **Interfaces**
 
-- `claude_spawn.py <session-name> <agent-role> [workdir]`
+- `claude_spawn.py --name <profile> [--session <session>] [--dir <workdir>]`
 - `claude_talk.py <session-name> "<message>"`
 - `claude_agents.py [table|json|names]`
 
@@ -194,28 +196,25 @@ Profiles package the context and configuration a role needs so agents start read
 
 **Profile contents**
 
-- `role` — canonical role name (`planner`, `builder`, `reviewer`, `security-reviewer`, `researcher`)
-- `briefing` — role-specific system context delivered after spawn
-- `model` — preferred model for the role
-- `allowed_tools` / `denied_tools` — tool policy
-- `mcp_servers` — MCP servers the role should load, including the memory graph
-- `default_paths` — files or directories the role should read first
-- `autonomy` — default auto-resolution policy (see section 5.7)
-- `budget` — default token budget (see section 5.8)
+- `name` — canonical role name
+- `description` — one-line summary
+- `system_prompt` — role-specific system context (passed via `--append-system-prompt` to the claude CLI)
+- `claude_args` — additional CLI arguments (e.g. `--permission-mode plan` for read-only agents)
 
 **Behavior**
 
-- Profiles are stored as files under `profiles/<role>.toml` (or `.yaml`).
-- `claude_spawn.py` resolves the role to a profile, applies configuration, and includes the briefing in the intro message.
+- Profiles are stored as `profiles/<role>/profile.json` in the coordinator plugin directory.
+- `claude_spawn.py` resolves the role to a profile, loads `profile.json`, and passes `system_prompt` and `claude_args` as CLI arguments to the spawned claude process.
 - The current role inference (from session name) remains as a fallback when no profile matches.
+- The `CLAUDE_AGENT_ROLE` environment variable is set explicitly when a profile is used.
 
-**Built-in roles**
+**Built-in profiles**
 
-- `planner` — decomposition and design; read-heavy; minimal write access.
-- `builder` — implementation; full edit access within the working directory.
-- `reviewer` — code review; read access plus comment and report output.
-- `security-reviewer` — adversarial review; read access; structured findings output.
-- `researcher` — investigation; web and documentation access.
+- `orchestrator` — coordinates other agents, delegates work, integrates results. Full tool access.
+- `planner` — decomposition and design; read-heavy (no Edit, Write, or Bash). Uses `--permission-mode plan` and the grill-me skill.
+- `code-reviewer` — code review; read-only. Uses `--permission-mode plan`.
+- `security-reviewer` — adversarial review; read-only. Uses `--permission-mode plan`.
+- `generator` — implementation; full edit access within the working directory.
 
 ### 5.6 Auto-Resolution of User-Input Questions
 
@@ -306,7 +305,7 @@ The harness enforces token budgets to prevent runaway cost.
   - `memory/` — memory graph
   - `budget/` — token usage and limits
   - `audit/` — auto-resolution and pause logs
-- Role profiles live under `profiles/` in the harness repository.
+- Role profiles live under `plugins/coordinator/profiles/<role>/profile.json` in the harness repository.
 - Environment variables:
   - `CLAUDE_AGENT_PREFIX` (default `claude-`)
   - `CLAUDE_BIN` (default `claude`)
